@@ -40,7 +40,7 @@
 #if LOG_VEC_SIZE != 5
 #error "VEC_SIZE must be 5"
 #endif
-
+    
     
     
     
@@ -51,7 +51,7 @@
     // rsi = char
 START(strchr_avx2):
     .cfi_startproc
-#if ALIGNMENT != 128
+#if ALIGNMENT <= 32
     movl %edi, %ecx
 #endif /* ALIGNMENT != 128 */
     
@@ -90,24 +90,23 @@ START(strchr_avx2):
 
     // increment and align 
     addq $(VEC_SIZE), %rdi
-    movl %edi, %ecx
     andq $-(VEC_SIZE), %rdi
 
 
 #endif /* ALIGNMENT == 0 */
-    andl $(4 * VEC_SIZE - 1), %ecx
     
     // either aligned 32, 64, 96, or 128
-    // ecx stores input rdi % 4096 so for ecx values
-    // [96 - 127]   -> 128
-    // [64 - 95]    -> 96
-    // [32 - 63]    -> 64
-    // [0  - 31]    -> 31
+
     // aligned 128 
-    testl %ecx, %ecx
+    testq $(4 * VEC_SIZE - 1), %rdi
     jz L(ALIGNED_VEC_SIZE_4x)
 
+    // if 64 aligned we only need the 128 check
 #if ALIGNMENT <= 32
+    // check for 32, 64, 96
+    movl %edi, %ecx
+    andl $(4 * VEC_SIZE - 1), %ecx
+
     // aligned 96 
     cmpl $(3 * VEC_SIZE), %ecx
     jz L(ALIGNED_VEC_SIZE_3x)
@@ -128,7 +127,7 @@ START(strchr_avx2):
     
     addq $(VEC_SIZE), %rdi
 #endif /* ALIGNMENT <= 32 */
-
+        
 
 // if alignment != 32 we will fall into this
 #if ALIGNMENT <= 32
@@ -162,8 +161,10 @@ L(ALIGNED_VEC_SIZE_3x):
     vptest %ymm1, %ymm1
     jnz L(YMM1_RET)
     
+#if ONE_PAGE == 0
+L(ALIGNED_VEC_SIZE_4x_add):
+#endif /* ONE_PAGE == 0 */
     addq $(VEC_SIZE), %rdi
-
 #endif /* ALIGNMENT != 128 */
     // main loop 
     .p2align 4   
@@ -258,13 +259,14 @@ L(cross_page):
     vpmovmskb %ymm1, %eax
 
     // drop bits from possible misalignment 
-    sarx %eax, %ecx, %eax
+    sarx %ecx, %eax, %eax
 
     // check if any 1s 
     testl %eax, %eax
-    jz L(ALIGNED_VEC_SIZE_4x)
+    jz L(ALIGNED_VEC_SIZE_4x_add)
 
     tzcntl %eax, %eax
+    addq %rcx, %rdi
     addq %rdi, %rax
     vzeroupper
     ret
