@@ -1,0 +1,32 @@
+#ifndef _FIND_BYTE_H_
+#define _FIND_BYTE_H_
+
+#include <immintrin.h>
+#include <stdint.h>
+
+template<uint8_t  target,
+         uint64_t expected_len,
+         conf     data_config = conf::aligned>
+struct bseq_ops {
+    using vec_t = __m512i;
+
+    static uint64_t __attribute__((pure)) find_byte_short(uint8_t * bytes) {
+        if constexpr (data_config == conf::aligned) {
+            bytes = __builtin_assume_aligned(bytes, sizeof(vec_t));
+        }
+
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+        uint64_t ret asm("rax")
+        vec_t cmp_v = _mm512_set1_epi8(target);
+        asm volatile(
+
+
+            );
+
+        
+    }
+};
+
+
+#endif
