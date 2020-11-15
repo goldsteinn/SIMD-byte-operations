@@ -2,10 +2,11 @@
 
 /*
     strchr using avx2. Performs better than libc version for sizes >
-	10^7. You can specify ALIGNMENT 0, 32, 64, 128 or ONE_PAGE 0, 1
-	during preprocess for additional optimization.
+	10^7. You can specify ALIGNMENT 0, 16, 32, 64, 128 or ONE_PAGE 0,
+	1 during preprocess for additional optimization.
 
     ALIGNMENT 0     -> normal strchr
+    ALIGNMENT 16    -> assumes input 16 byte aligned
     ALIGNMENT 32    -> assumes input 32 byte aligned
     ALIGNMENT 64    -> assumes input 64 byte aligned
     ALIGNMNET 128   -> assumes input 128 byte aligned
@@ -31,14 +32,17 @@
 #define LOG_VEC_SIZE 5
 #endif
 
-#if PAGE_SIZE != 4096
-#error "PAGE_SIZE must be 4096"
+#if PAGE_SIZE != 4096 && PAGE_SIZE != 1048576
+#error "PAGE_SIZE must be 4096 or 1048576"
 #endif
 #if VEC_SIZE != 32
 #error "VEC_SIZE must be 32"
 #endif
 #if LOG_VEC_SIZE != 5
 #error "VEC_SIZE must be 5"
+#endif
+#if ALIGNMENT != 0 && ALIGNMENT != 16 && ALIGNMENT != 32 && ALIGNMENT != 64 && ALIGNMENT != 128
+#error "Invalid ALIGNMENT"
 #endif
     
     
@@ -70,7 +74,7 @@ START(strchr_avx2):
 #if ONE_PAGE == 0
     andl $(PAGE_SIZE - 1), %ecx
     cmpl $(PAGE_SIZE - VEC_SIZE), %ecx
-    ja L(cross_page)
+    ja L(CROSS_PAGE)
 #endif /* ONE_PAGE == 0 */
 
     // not on page bound so safe to load 32 bytes 
@@ -94,6 +98,28 @@ START(strchr_avx2):
 
 
 #endif /* ALIGNMENT == 0 */
+#if ALIGNMENT == 16
+    testl $(VEC_SIZE / 2), %ecx
+    jz L(ALIGNED_32)
+    // not on page bound so safe to load 32 bytes
+    vmovdqa (%rdi), %xmm1
+
+    // cmp vs rsi 
+    vpcmpeqb %xmm1, %xmm9, %xmm2
+    // cmp vs 0s 
+    vpcmpeqb %xmm1, %xmm0, %xmm1
+
+    // combine results 
+    vpor %xmm1, %xmm2, %xmm1
+
+    // test if any matches 
+    vptest %xmm1, %xmm1
+    jnz L(YMM1_RET)
+
+    // increment and align 
+    addq $(VEC_SIZE / 2), %rdi
+L(ALIGNED_32):
+#endif /* ALIGNMENT == 16 */    
     
     // either aligned 32, 64, 96, or 128
 
@@ -115,6 +141,7 @@ START(strchr_avx2):
     cmpl $(2 * VEC_SIZE), %ecx
     jz L(ALIGNED_VEC_SIZE_2x)
 
+    // 32 aligned
     vmovdqa (%rdi), %ymm1
     
     vpcmpeqb %ymm1, %ymm9, %ymm2
@@ -134,7 +161,8 @@ START(strchr_avx2):
     .p2align 4
 L(ALIGNED_VEC_SIZE_2x):
 #endif /* ALIGNMENT <= 32 */
-    
+
+    // 64 aligned
     vmovdqa (%rdi), %ymm1
     
     vpcmpeqb %ymm1, %ymm9, %ymm2
@@ -150,7 +178,9 @@ L(ALIGNED_VEC_SIZE_2x):
 #if ALIGNMENT <= 32    
     .p2align 4   
 L(ALIGNED_VEC_SIZE_3x):
-#endif /* ALIGNMENT <= 32 */
+    #endif /* ALIGNMENT <= 32 */
+
+    // 96 aligned
     vmovdqa (%rdi), %ymm1
     
     vpcmpeqb %ymm1, %ymm9, %ymm2
@@ -169,34 +199,43 @@ L(ALIGNED_VEC_SIZE_4x_add):
     // main loop 
     .p2align 4   
 L(ALIGNED_VEC_SIZE_4x):
+
+    // the reason the logic is scatter is because min can only run on
+	// ports 0/1 which is a bottleneck. The goal is to rearange
+	// operations to the sake of instruction parallelism
     
     // load 4 vectors at once 
     vmovdqa (%rdi), %ymm1
     vmovdqa (VEC_SIZE)(%rdi), %ymm2
-    vmovdqa (2 * VEC_SIZE)(%rdi), %ymm3
-    vmovdqa (3 * VEC_SIZE)(%rdi), %ymm4
-    addq $(4 * VEC_SIZE), %rdi
     
     // esi -> 0s 
     vpxor %ymm1, %ymm9, %ymm5
     vpxor %ymm2, %ymm9, %ymm6
-    vpxor %ymm3, %ymm9, %ymm7
-    vpxor %ymm4, %ymm9, %ymm8
-
+    
     // select all 0s 
     vpminub %ymm1, %ymm5, %ymm1
     vpminub %ymm2, %ymm6, %ymm2
-    vpminub %ymm3, %ymm7, %ymm3
-    vpminub %ymm4, %ymm8, %ymm4
-
+    
+    vmovdqa (2 * VEC_SIZE)(%rdi), %ymm3
     // merge results 
     vpminub %ymm1, %ymm2, %ymm5
+    vmovdqa (3 * VEC_SIZE)(%rdi), %ymm4
+
+    // esi -> 0s
+    vpxor %ymm3, %ymm9, %ymm7
+    vpxor %ymm4, %ymm9, %ymm8
+
+    // merge results
+    vpminub %ymm3, %ymm7, %ymm3
+    vpminub %ymm4, %ymm8, %ymm4
     vpminub %ymm3, %ymm4, %ymm6
+    
     vpminub %ymm5, %ymm6, %ymm5
 
     // cmp for 0s 
     vpcmpeqb %ymm5, %ymm0, %ymm5
 
+    addq $(4 * VEC_SIZE), %rdi
     vptest %ymm5, %ymm5
     jz L(ALIGNED_VEC_SIZE_4x)
 
@@ -243,7 +282,7 @@ L(EAX_RET):
 
     // this is pretty cold code
     .p2align 4
-L(cross_page):
+L(CROSS_PAGE):
     // store misalignment in ecx 
     andl $(VEC_SIZE - 1), %ecx
 

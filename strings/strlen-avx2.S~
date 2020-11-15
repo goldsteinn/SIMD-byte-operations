@@ -1,0 +1,38 @@
+#include "asm-common.h"
+
+#ifndef ONE_PAGE
+#define ONE_PAGE 0
+#endif
+#ifndef ALIGNMENT
+#define ALIGNMENT 0
+#endif
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4096
+#endif
+#ifndef VEC_SIZE
+#define VEC_SIZE 32
+#endif
+#ifndef LOG_VEC_SIZE
+#define LOG_VEC_SIZE 5
+#endif
+
+#if PAGE_SIZE != 4096
+#error "PAGE_SIZE must be 4096"
+#endif
+#if VEC_SIZE != 32
+#error "VEC_SIZE must be 32"
+#endif
+#if LOG_VEC_SIZE != 5
+#error "VEC_SIZE must be 5"
+#endif
+
+    .file "strlen-avx2"
+    .text
+
+    // rdi = char *
+START(strlen_avx2):
+    .cfi_startproc
+    
+    
+    .cfi_endproc
+    END(strlen_avx2)
