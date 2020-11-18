@@ -1,0 +1,100 @@
+#include "asm-common.h"
+
+#ifndef ONE_PAGE
+#define ONE_PAGE 0
+#endif
+#ifndef ALIGNMENT
+#define ALIGNMENT 0
+#endif
+#ifndef PAGE_SIZE
+#define PAGE_SIZE 4096
+#endif
+#ifndef VEC_SIZE
+#define VEC_SIZE 32
+#endif
+#ifndef LOG_VEC_SIZE
+#define LOG_VEC_SIZE 5
+#endif
+
+#if PAGE_SIZE != 4096 && PAGE_SIZE != 1048576
+#error "PAGE_SIZE must be 4096 or 1048576"
+#endif
+#if VEC_SIZE != 32
+#error "VEC_SIZE must be 32"
+#endif
+#if LOG_VEC_SIZE != 5
+#error "VEC_SIZE must be 5"
+#endif
+
+    .file "strlen-avx2"
+    .text
+
+    // rdi = char *
+    // rsi = char *
+START(strcpy_avx2):
+    .cfi_startproc
+
+
+    movl %esi, %ecx
+    andq $-(VEC_SIZE), %rsi
+    
+    // ymm0 = 0s 
+    vpxor %xmm0, %xmm0, %xmm0
+
+    
+    vmovdqa (%rsi), %ymm1
+    vpcmpeqb %ymm1, %ymm0, %ymm5
+    vptest %ymm5, %ymm1
+    jnz L(FIRST_RET)
+
+
+
+L(PARTIAL_STORE):
+    
+    andl $(VEC_SIZE -1), %ecx
+    
+    
+    
+    
+    
+    
+
+    .cfi_endproc
+    END(strlen_avx2)
+
+
+    .data
+L(blend_base):
+    .byte 0
+    .byte 1
+    .byte 2
+    .byte 3
+    .byte 4
+    .byte 5
+    .byte 6
+    .byte 7
+    .byte 8
+    .byte 9
+    .byte 10
+    .byte 11
+    .byte 12
+    .byte 13
+    .byte 14
+    .byte 15
+    .byte 16
+    .byte 17
+    .byte 18
+    .byte 19
+    .byte 20
+    .byte 21
+    .byte 22
+    .byte 23
+    .byte 24
+    .byte 25
+    .byte 26
+    .byte 27
+    .byte 28
+    .byte 29
+    .byte 30
+    .byte 31
+    

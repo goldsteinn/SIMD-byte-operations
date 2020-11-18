@@ -121,27 +121,13 @@ START(strchr_avx2):
 L(ALIGNED_32):
 #endif /* ALIGNMENT == 16 */    
     
-    // either aligned 32, 64, 96, or 128
-
-    // aligned 128 
-    testq $(4 * VEC_SIZE - 1), %rdi
-    jz L(ALIGNED_VEC_SIZE_4x)
 
     // if 64 aligned we only need the 128 check
 #if ALIGNMENT <= 32
-    // check for 32, 64, 96
-    movl %edi, %ecx
-    andl $(4 * VEC_SIZE - 1), %ecx
-
-    // aligned 96 
-    cmpl $(3 * VEC_SIZE), %ecx
-    jz L(ALIGNED_VEC_SIZE_3x)
-    
-    // aligned 64 
-    cmpl $(2 * VEC_SIZE), %ecx
-    jz L(ALIGNED_VEC_SIZE_2x)
-
     // 32 aligned
+    testq $(4 * VEC_SIZE - 1), %rdi
+    jz L(ALIGNED_VEC_SIZE_4x)
+    
     vmovdqa (%rdi), %ymm1
     
     vpcmpeqb %ymm1, %ymm9, %ymm2
@@ -153,16 +139,12 @@ L(ALIGNED_32):
     jnz L(YMM1_RET)
     
     addq $(VEC_SIZE), %rdi
-#endif /* ALIGNMENT <= 32 */
-        
-
-// if alignment != 32 we will fall into this
-#if ALIGNMENT <= 32
-    .p2align 4
-L(ALIGNED_VEC_SIZE_2x):
 #endif /* ALIGNMENT <= 32 */
 
     // 64 aligned
+    testq $(4 * VEC_SIZE - 1), %rdi
+    jz L(ALIGNED_VEC_SIZE_4x)
+    
     vmovdqa (%rdi), %ymm1
     
     vpcmpeqb %ymm1, %ymm9, %ymm2
@@ -175,12 +157,12 @@ L(ALIGNED_VEC_SIZE_2x):
 
     addq $(VEC_SIZE), %rdi
 
-#if ALIGNMENT <= 32    
-    .p2align 4   
-L(ALIGNED_VEC_SIZE_3x):
-    #endif /* ALIGNMENT <= 32 */
-
+#if ALIGNMENT <= 32
     // 96 aligned
+    testq $(4 * VEC_SIZE - 1), %rdi
+    jz L(ALIGNED_VEC_SIZE_4x)
+#endif /* ALIGNMENT <= 32 */
+    
     vmovdqa (%rdi), %ymm1
     
     vpcmpeqb %ymm1, %ymm9, %ymm2
@@ -190,6 +172,8 @@ L(ALIGNED_VEC_SIZE_3x):
     
     vptest %ymm1, %ymm1
     jnz L(YMM1_RET)
+
+
     
 #if ONE_PAGE == 0
 L(ALIGNED_VEC_SIZE_4x_add):

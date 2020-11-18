@@ -51,35 +51,26 @@ START(strlen_avx2):
     addq $(VEC_SIZE), %rdi
     andq $-(VEC_SIZE), %rdi
 
-    testq $(4 * VEC_SIZE - 1), %rdi
-    jz L(ALIGNED_VEC_SIZE_4x)
-
-    movl %edi, %ecx
-    andl $(4 * VEC_SIZE - 1), %ecx
-
-    // aligned 96 
-    cmpl $(3 * VEC_SIZE), %ecx
-    jz L(ALIGNED_VEC_SIZE_3x)
-    
-    // aligned 64 
-    cmpl $(2 * VEC_SIZE), %ecx
-    jz L(ALIGNED_VEC_SIZE_2x)
 
     // 32 aligned
+    testq $(4 * VEC_SIZE - 1), %rdi
+    jz L(ALIGNED_VEC_SIZE_4x)
     vpcmpeqb (%rdi), %ymm0, %ymm1
     vptest %ymm1, %ymm1
     jnz L(YMM1_RET)
     addq $(VEC_SIZE), %rdi
 
     // 64 aligned
-L(ALIGNED_VEC_SIZE_2x):
+    testq $(4 * VEC_SIZE - 1), %rdi
+    jz L(ALIGNED_VEC_SIZE_4x)
     vpcmpeqb (%rdi), %ymm0, %ymm1
     vptest %ymm1, %ymm1
     jnz L(YMM1_RET)
     addq $(VEC_SIZE), %rdi
 
     // 96 aligned
-L(ALIGNED_VEC_SIZE_3x):
+    testq $(4 * VEC_SIZE - 1), %rdi
+    jz L(ALIGNED_VEC_SIZE_4x)
     vpcmpeqb (%rdi), %ymm0, %ymm1
     vptest %ymm1, %ymm1
     jnz L(YMM1_RET)
