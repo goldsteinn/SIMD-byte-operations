@@ -53,10 +53,9 @@ L(START_CPY):
 
     andl $(VEC_SIZE - 1), %ecx
     addq $(VEC_SIZE), %rsi
-    movl $(VEC_SIZE), %edx
-    subl %ecx, %edx
+    subq $(VEC_SIZE), %rcx
     andq $-(VEC_SIZE), %rsi
-    addq %rdx, %rdi
+    subq %rcx, %rdi
     
     testl $(4 * VEC_SIZE - 1), %esi
     jz L(ALIGNED_128)
@@ -239,7 +238,8 @@ L(COPY17_32):
     END(strcpy_avx2)
 
 
-    .data
+    .section .rodata
+    .p2align LOG_VEC_SIZE
 L(blend_base):
     .byte 0
     .byte 1

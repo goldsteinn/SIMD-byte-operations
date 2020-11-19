@@ -16,6 +16,7 @@
 #define LOG_VEC_SIZE 5
 #endif
 
+
 #if PAGE_SIZE != 4096 && PAGE_SIZE != 1048576
 #error "PAGE_SIZE must be 4096 or 1048576"
 #endif
@@ -47,10 +48,9 @@ START(strlen_avx2):
     vptest %ymm1, %ymm1
     jnz L(YMM1_RET)
 
-    // align rdi
+   // align rdi
     addq $(VEC_SIZE), %rdi
     andq $-(VEC_SIZE), %rdi
-
 
     // 32 aligned
     testq $(4 * VEC_SIZE - 1), %rdi
@@ -80,7 +80,6 @@ L(ALIGNED_VEC_SIZE_4x_add):
     
     .p2align 4   
 L(ALIGNED_VEC_SIZE_4x):
-
     // load 4 vecs at a time
     vmovdqa (%rdi), %ymm1
     vmovdqa (VEC_SIZE)(%rdi), %ymm2
@@ -106,6 +105,7 @@ L(ALIGNED_VEC_SIZE_4x):
     // ymm1 
     vpcmpeqb %ymm1, %ymm0, %ymm1
     vptest %ymm1, %ymm1
+
     jnz L(YMM1_RET)
     addq $(VEC_SIZE), %rdi
 
@@ -163,3 +163,4 @@ L(CROSS_PAGE):
     
     .cfi_endproc
     END(strlen_avx2)
+

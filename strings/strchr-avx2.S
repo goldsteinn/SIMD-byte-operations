@@ -298,4 +298,3 @@ L(CROSS_PAGE):
     
     .cfi_endproc
     END(strchr_avx2)
-
